@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D FLIP 流体シミュレーション</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            background: #000;
+            cursor: crosshair;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 13px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 150px;
+            cursor: pointer;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .value-display {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .info strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌊 2D FLIP 流体シミュレーション</h1>
+        <p class="subtitle">Fluid-Implicit Particle Method</p>
+
+        <canvas id="canvas"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>重力: <span class="value-display" id="gravityValue">-9.8</span></label>
+                <input type="range" id="gravity" min="-20" max="0" step="0.1" value="-9.8">
+            </div>
+
+            <div class="control-group">
+                <label>粘性: <span class="value-display" id="viscosityValue">0.01</span></label>
+                <input type="range" id="viscosity" min="0" max="0.1" step="0.001" value="0.01">
+            </div>
+
+            <div class="control-group">
+                <label>パーティクル数: <span class="value-display" id="particleValue">2000</span></label>
+                <input type="range" id="particleCount" min="500" max="5000" step="100" value="2000">
+            </div>
+
+            <button id="reset">リセット</button>
+        </div>
+
+        <div class="info">
+            <strong>操作方法:</strong><br>
+            ・マウスをドラッグして流体を動かせます<br>
+            ・FLIPメソッド: パーティクルとグリッドを組み合わせた高精度な流体シミュレーション<br>
+            ・非圧縮性流体の方程式を解いてリアルな挙動を再現
+        </div>
+    </div>
+
+    <script src="flip-simulation.js"></script>
+</body>
+</html>
