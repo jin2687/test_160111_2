@@ -5,8 +5,8 @@ class FLIPSimulation {
         this.ctx = canvas.getContext('2d');
 
         // キャンバスサイズ
-        this.width = 800;
-        this.height = 600;
+        this.width = 600;
+        this.height = 400;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
 
@@ -17,7 +17,7 @@ class FLIPSimulation {
         this.density = 1000; // 流体密度
 
         // グリッド設定
-        this.gridSize = 10;
+        this.gridSize = 5; // 格子解像度を2倍に（10→5）
         this.gridWidth = Math.floor(this.width / this.gridSize);
         this.gridHeight = Math.floor(this.height / this.gridSize);
 
@@ -51,7 +51,7 @@ class FLIPSimulation {
         const startX = this.width * 0.25;
         const startY = this.height * 0.2;
         const size = Math.sqrt(this.particleCount);
-        const spacing = 3.2;
+        const spacing = 2.5; // ボックスサイズに合わせて調整
 
         for (let i = 0; i < this.particleCount; i++) {
             const row = Math.floor(i / size);
@@ -462,7 +462,7 @@ class FLIPSimulation {
 
     // パーティクル間の密度補償（重なりを防ぐ）
     applyParticleRepulsion() {
-        const radius = 3.5; // パーティクルの有効半径
+        const radius = 2.8; // パーティクルの有効半径（グリッドサイズに合わせて調整）
         const stiffness = 0.2; // 反発強度（低めに設定）
 
         // 空間ハッシュを使った高速化
@@ -543,7 +543,7 @@ class FLIPSimulation {
         for (const p of this.particles) {
             this.ctx.fillStyle = p.color;
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+            this.ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
             this.ctx.fill();
         }
     }
