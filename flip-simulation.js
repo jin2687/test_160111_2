@@ -48,17 +48,19 @@ class FLIPSimulation {
 
         // パーティクル初期化
         this.particles = [];
-        const startX = this.width * 0.3;
-        const startY = this.height * 0.3;
+        const startX = this.width * 0.25;
+        const startY = this.height * 0.2;
         const size = Math.sqrt(this.particleCount);
-        const spacing = 3;
+        const spacing = 3.2;
 
         for (let i = 0; i < this.particleCount; i++) {
             const row = Math.floor(i / size);
             const col = i % size;
+            // 少しランダムさを加えて自然な配置に
+            const jitter = 0.3;
             this.particles.push({
-                x: startX + col * spacing,
-                y: startY + row * spacing,
+                x: startX + col * spacing + (Math.random() - 0.5) * jitter,
+                y: startY + row * spacing + (Math.random() - 0.5) * jitter,
                 vx: 0,
                 vy: 0,
                 color: `hsl(${200 + Math.random() * 40}, 100%, ${50 + Math.random() * 20}%)`
@@ -230,10 +232,13 @@ class FLIPSimulation {
             }
         }
 
+        // 速度場の移流（セミラグランジアン法）
+        this.advectVelocity();
+
         // 境界条件
         this.applyBoundaryConditions();
 
-        // 圧力投影（簡易版）- 非圧縮性を維持
+        // 圧力投影 - 非圧縮性を維持
         this.projectVelocity();
     }
 
@@ -250,9 +255,81 @@ class FLIPSimulation {
         }
     }
 
+    // セミラグランジアン移流
+    advectVelocity() {
+        const uNew = [];
+        const vNew = [];
+
+        for (let i = 0; i <= this.gridWidth; i++) {
+            uNew[i] = [];
+            vNew[i] = [];
+            for (let j = 0; j <= this.gridHeight; j++) {
+                uNew[i][j] = 0;
+                vNew[i][j] = 0;
+            }
+        }
+
+        // u成分の移流
+        for (let i = 1; i < this.gridWidth; i++) {
+            for (let j = 1; j < this.gridHeight; j++) {
+                // バックトレース
+                const x = i * this.gridSize - this.u[i][j] * this.dt * 100;
+                const y = j * this.gridSize - this.v[i][j] * this.dt * 100;
+
+                const gi = Math.floor(x / this.gridSize);
+                const gj = Math.floor(y / this.gridSize);
+
+                if (gi >= 0 && gi < this.gridWidth && gj >= 0 && gj < this.gridHeight) {
+                    const fx = (x / this.gridSize) - gi;
+                    const fy = (y / this.gridSize) - gj;
+
+                    uNew[i][j] =
+                        this.u[gi][gj] * (1 - fx) * (1 - fy) +
+                        this.u[Math.min(gi + 1, this.gridWidth)][gj] * fx * (1 - fy) +
+                        this.u[gi][Math.min(gj + 1, this.gridHeight)] * (1 - fx) * fy +
+                        this.u[Math.min(gi + 1, this.gridWidth)][Math.min(gj + 1, this.gridHeight)] * fx * fy;
+                } else {
+                    uNew[i][j] = this.u[i][j];
+                }
+            }
+        }
+
+        // v成分の移流
+        for (let i = 1; i < this.gridWidth; i++) {
+            for (let j = 1; j < this.gridHeight; j++) {
+                const x = i * this.gridSize - this.u[i][j] * this.dt * 100;
+                const y = j * this.gridSize - this.v[i][j] * this.dt * 100;
+
+                const gi = Math.floor(x / this.gridSize);
+                const gj = Math.floor(y / this.gridSize);
+
+                if (gi >= 0 && gi < this.gridWidth && gj >= 0 && gj < this.gridHeight) {
+                    const fx = (x / this.gridSize) - gi;
+                    const fy = (y / this.gridSize) - gj;
+
+                    vNew[i][j] =
+                        this.v[gi][gj] * (1 - fx) * (1 - fy) +
+                        this.v[Math.min(gi + 1, this.gridWidth)][gj] * fx * (1 - fy) +
+                        this.v[gi][Math.min(gj + 1, this.gridHeight)] * (1 - fx) * fy +
+                        this.v[Math.min(gi + 1, this.gridWidth)][Math.min(gj + 1, this.gridHeight)] * fx * fy;
+                } else {
+                    vNew[i][j] = this.v[i][j];
+                }
+            }
+        }
+
+        // 結果をコピー
+        for (let i = 0; i <= this.gridWidth; i++) {
+            for (let j = 0; j <= this.gridHeight; j++) {
+                this.u[i][j] = uNew[i][j];
+                this.v[i][j] = vNew[i][j];
+            }
+        }
+    }
+
     // 圧力投影法で速度場を非圧縮にする
     projectVelocity() {
-        const iterations = 40; // 反復回数を増やして精度向上
+        const iterations = 50;
         const divergence = [];
         const pressure = [];
 
@@ -266,50 +343,47 @@ class FLIPSimulation {
             }
         }
 
-        // 発散を計算（修正版）
-        for (let i = 1; i < this.gridWidth; i++) {
-            for (let j = 1; j < this.gridHeight; j++) {
-                // 速度の発散を計算
+        // 発散を計算（MAC格子：前方差分）
+        for (let i = 0; i < this.gridWidth; i++) {
+            for (let j = 0; j < this.gridHeight; j++) {
                 divergence[i][j] = (
-                    (this.u[i + 1][j] - this.u[i - 1][j]) / (2 * this.gridSize) +
-                    (this.v[i][j + 1] - this.v[i][j - 1]) / (2 * this.gridSize)
-                );
+                    (this.u[i + 1][j] - this.u[i][j]) +
+                    (this.v[i][j + 1] - this.v[i][j])
+                ) / this.gridSize;
             }
         }
 
-        // ヤコビ反復で圧力を解く（ポアソン方程式）
-        const omega = 1.8; // SOR加速係数
+        // ヤコビ反復でポアソン方程式を解く: ∇²p = ρ/dt * div(u)
+        const scale = this.density / this.dt;
+        const omega = 1.9; // SOR加速係数
+
         for (let iter = 0; iter < iterations; iter++) {
-            for (let i = 1; i < this.gridWidth; i++) {
-                for (let j = 1; j < this.gridHeight; j++) {
+            for (let i = 1; i < this.gridWidth - 1; i++) {
+                for (let j = 1; j < this.gridHeight - 1; j++) {
                     const pNew = (
                         pressure[i - 1][j] + pressure[i + 1][j] +
                         pressure[i][j - 1] + pressure[i][j + 1] -
-                        divergence[i][j] * this.gridSize * this.gridSize * this.density
+                        this.gridSize * this.gridSize * divergence[i][j] * scale
                     ) / 4;
 
-                    // SOR法で収束を加速
                     pressure[i][j] = pressure[i][j] * (1 - omega) + pNew * omega;
                 }
             }
         }
 
-        // 圧力勾配を速度から引く（修正版）
+        // 圧力勾配を速度から引く: u_new = u - dt/ρ * ∇p
+        const gradScale = this.dt / (this.density * this.gridSize);
+
         for (let i = 1; i < this.gridWidth; i++) {
             for (let j = 1; j < this.gridHeight; j++) {
-                this.u[i][j] -= (pressure[i + 1][j] - pressure[i - 1][j]) / (2 * this.gridSize * this.density);
-                this.v[i][j] -= (pressure[i][j + 1] - pressure[i][j - 1]) / (2 * this.gridSize * this.density);
+                this.u[i][j] -= (pressure[i][j] - pressure[i - 1][j]) * gradScale;
             }
         }
 
-        // 境界での圧力勾配を適用
-        for (let j = 1; j < this.gridHeight; j++) {
-            this.u[1][j] -= (pressure[2][j] - pressure[1][j]) / (this.gridSize * this.density);
-            this.u[this.gridWidth - 1][j] -= (pressure[this.gridWidth - 1][j] - pressure[this.gridWidth - 2][j]) / (this.gridSize * this.density);
-        }
         for (let i = 1; i < this.gridWidth; i++) {
-            this.v[i][1] -= (pressure[i][2] - pressure[i][1]) / (this.gridSize * this.density);
-            this.v[i][this.gridHeight - 1] -= (pressure[i][this.gridHeight - 1] - pressure[i][this.gridHeight - 2]) / (this.gridSize * this.density);
+            for (let j = 1; j < this.gridHeight; j++) {
+                this.v[i][j] -= (pressure[i][j] - pressure[i][j - 1]) * gradScale;
+            }
         }
     }
 
@@ -351,8 +425,8 @@ class FLIPSimulation {
                     this.vPrev[i][j + 1] * (1 - fx) * fy +
                     this.vPrev[i + 1][j + 1] * fx * fy;
 
-                // FLIP: 差分を追加（0.95はFLIP、0.05はPIC）
-                const flipRatio = 0.95;
+                // FLIP: 差分を追加（0.90はFLIP、0.10はPIC）
+                const flipRatio = 0.90;
                 p.vx = flipRatio * (p.vx + newVX - oldVX) + (1 - flipRatio) * newVX;
                 p.vy = flipRatio * (p.vy + newVY - oldVY) + (1 - flipRatio) * newVY;
             }
@@ -388,8 +462,8 @@ class FLIPSimulation {
 
     // パーティクル間の密度補償（重なりを防ぐ）
     applyParticleRepulsion() {
-        const radius = 4; // パーティクルの有効半径
-        const stiffness = 0.5; // 反発強度
+        const radius = 3.5; // パーティクルの有効半径
+        const stiffness = 0.2; // 反発強度（低めに設定）
 
         // 空間ハッシュを使った高速化
         const cellSize = radius * 2;
